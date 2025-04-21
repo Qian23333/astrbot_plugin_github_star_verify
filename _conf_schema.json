@@ -1,0 +1,44 @@
+{
+  "verification_word": {
+    "description": "验证关键词",
+    "type": "string",
+    "default": "进行验证",
+    "hint": "用户发送此关键词视为验证成功"
+  },
+  "verification_timeout": {
+    "description": "验证超时时间（秒）",
+    "type": "int",
+    "default": 300,
+    "hint": "在此时间内未验证则判定失败（默认 5 分钟）"
+  },
+  "kick_delay": {
+    "description": "踢出倒计时（秒）",
+    "type": "int",
+    "default": 60,
+    "hint": "验证失败提示后等待此时间再踢出用户"
+  },
+  "welcome_message": {
+    "description": "验证成功提示语",
+    "type": "string",
+    "default": "恭喜你验证成功，欢迎加入群聊！",
+    "hint": "用户验证成功后发送的消息"
+  },
+  "failure_message": {
+    "description": "验证失败提示语",
+    "type": "string",
+    "default": "验证失败，你将在{countdown}秒后被踢出该群聊",
+    "hint": "用户验证失败后发送的消息，{countdown}将替换为实际倒计时"
+  },
+  "kick_message": {
+    "description": "踢出提示语",
+    "type": "string",
+    "default": "{member_name}未完成验证，已被踢出群聊",
+    "hint": "用户被踢出后发送的消息，{member_name}将替换为用户昵称"
+  },
+  "join_prompt": {
+    "description": "入群提示语",
+    "type": "string",
+    "default": "欢迎 {member_name} 加入本群！请在{timeout}分钟内@机器人并回复\"{verification_word}\"完成验证，否则将被踢出群聊。",
+    "hint": "用户进群时的提示语，支持 {member_name}、{timeout}、{verification_word} 变量"
+  }
+}

@@ -1,0 +1,8 @@
+name: astrbot_plugin_Group-Verification
+display_name: QQ 群成员关键词入群验证
+author: huotuo146
+version: 1.2.1
+description: |
+  基于 AstrBot 的群聊管理插件，支持关键词验证、验证超时自动踢出、支持动态提示模板。
+  提升插件灵活性与可控性。
+repo_url: https://github.com/huntuo146/astrbot_plugin_Group-Verification
