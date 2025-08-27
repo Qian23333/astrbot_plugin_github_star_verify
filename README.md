@@ -1,18 +1,19 @@
-# 🤖 QQ群成员验证插件
+# 🤖 QQ群GitHub Star验证插件
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-1.2.1-blue.svg)  
-![License](https://img.shields.io/badge/license-MIT-green.svg)  
+![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)
+![License](https://img.shields.io/badge/license-MIT-green.svg)
 ![Platform](https://img.shields.io/badge/platform-AstrBot-purple.svg)
 
-*一个简单高效的QQ群验证工具，保护您的群聊免受广告机器人和不良用户的侵扰*
+*基于GitHub Star的QQ群验证插件，只允许Star过指定仓库的用户加入群聊*
 
-[功能简介](#✨-功能简介) •  
-[安装方法](#📥-安装方法) •  
-[配置说明](#⚙️-配置说明) •  
-[使用教程](#📝-使用教程) •  
-[常见问题](#❓-常见问题) •  
+[功能简介](#✨-功能简介) •
+[快速开始](#�-快速开始) •
+[安装配置](#📥-安装配置) •
+[使用说明](#📝-使用说明) •
+[技术特性](#🔧-技术特性) •
+[常见问题](#❓-常见问题) •
 [更新日志](#📋-更新日志)
 
 </div>
@@ -21,19 +22,58 @@
 
 ## ✨ 功能简介
 
-QQ群成员验证插件为 AstrBot 提供了强大的新成员管理功能，能有效过滤可疑用户，提升群聊质量。
+这是一个专为AstrBot设计的GitHub Star验证插件，通过验证新成员是否Star过指定的GitHub仓库来控制群成员准入。
 
-- 🔍 **自动监测** - 实时检测新成员入群并立即发送验证提示  
-- 🔑 **关键词验证** - 用户需要 @机器人 并回复指定关键词完成验证  
-- ⏱️ **超时踢出** - 未在规定时间内完成验证的用户将被自动移出群聊  
-- 🎨 **高度自定义** - 所有提示消息和时间设置均可根据需求调整
-- 
-- 🔄 **变量支持** - 提示信息支持动态变量，使消息更加个性化  
+### 核心功能
+- ⭐ **GitHub Star验证** - 新成员必须Star指定仓库才能留在群内
+- 🔗 **账号绑定防护** - 防止同一GitHub账号被多个QQ号绑定
+- 🤖 **自动化流程** - 入群即验证，无需人工干预
+- 💾 **本地数据库** - 使用SQLite存储Star用户数据，支持离线验证
+- ⚡ **异步架构** - 基于aiosqlite和httpx，高性能异步处理
+- 🎨 **高度自定义** - 所有消息模板和时间参数可自由配置
 
-## 📥 安装方法
+## 🚀 快速开始
+
+### 1. 获取GitHub Token
+1. 访问 [GitHub Settings > Personal Access Tokens](https://github.com/settings/tokens)
+2. 点击 "Generate new token (classic)"
+3. 设置token名称，选择 `public_repo` 权限
+4. 生成并复制token（格式：`ghp_xxxxxxxxxxxxxxxxxxxx`）
+
+### 2. 配置插件
+在AstrBot插件配置中设置：
+```json
+{
+  "github_token": "你的GitHub Token",
+  "github_repo": "owner/repo",
+  "verification_timeout": 300,
+  "kick_delay": 60
+}
+```
+
+### 3. 验证流程示例
+```
+[新用户加入群聊]
+
+🤖 机器人：
+欢迎 @新用户 加入本群！
+请在 5 分钟内 @我 并回复你的GitHub用户名来完成验证。
+格式：@机器人 GitHub用户名
+只有Star过 SilianZ/astrbot 的用户才能留在群里。
+
+👤 用户：@机器人 octocat
+
+🤖 机器人：@用户 GitHub验证成功！欢迎Star过 SilianZ/astrbot 的开发者加入！
+```
+
+## �📥 安装配置
+
+### 安装插件
+
+### 安装插件
 
 <details>
-<summary>展开查看详细安装步骤</summary>
+<summary>展开查看安装步骤</summary>
 
 1. 进入 AstrBot 的插件管理界面  
 2. 搜索 `astrbot_plugin_Group-Verification` 进行安装  
@@ -45,114 +85,181 @@ QQ群成员验证插件为 AstrBot 提供了强大的新成员管理功能，能
 
 ## ⚙️ 配置说明
 
-### 基础配置项
+### 配置参数
 
-| 配置项 | 类型 | 说明 |
-|--------|------|------|
-| `verification_word` | string | 关键词验证内容 |
-| `verification_timeout` | int | 验证超时时间（秒） |
-| `kick_delay` | int | 发送失败提示后延迟踢出时间（秒） |
-| `welcome_message` | string | 验证成功提示语 |
-| `failure_message` | string | 验证失败提示语，支持 `{countdown}` 变量 |
-| `kick_message` | string | 踢出消息模板，支持 `{member_name}` 变量 |
-| `join_prompt` | string | 新人提示语模板，支持 `{member_name}` `{timeout}` `{verification_word}` |
+| 配置项 | 类型 | 必需 | 说明 |
+|--------|------|------|------|
+| `github_token` | string | ✅ | GitHub个人访问令牌 |
+| `github_repo` | string | ✅ | 目标仓库（格式：owner/repo） |
+| `verification_timeout` | int | ❌ | 验证超时时间（秒，默认300） |
+| `kick_delay` | int | ❌ | 踢出延迟时间（秒，默认60） |
 
-### 支持的模板变量
+### 消息模板配置
 
-- `{member_name}` - 用户昵称或QQ号  
-- `{timeout}` - 验证超时（分钟）  
-- `{countdown}` - 踢出倒计时（秒）  
-- `{verification_word}` - 验证关键词内容  
+所有消息模板都支持变量替换：
 
-## 📝 使用教程
+```json
+{
+  "join_prompt": "欢迎 {member_name} 加入本群！\n请在 {timeout} 分钟内 @我 并回复你的GitHub用户名来完成验证。\n格式：@机器人 GitHub用户名\n只有Star过 {repo} 的用户才能留在群里。",
+  "welcome_message": "{at_user} GitHub验证成功！欢迎Star过 {repo} 的开发者加入！",
+  "failure_message": "{at_user} 验证超时，你将在 {countdown} 秒后被移出群聊。",
+  "kick_message": "{member_name} 因未完成GitHub验证已被移出群聊。",
+  "not_star_message": "{at_user} 验证失败：你没有Star过 {repo} 或GitHub用户名不存在。",
+  "already_bound_message": "{at_user} 验证失败：该GitHub用户名已被其他QQ号绑定。",
+  "invalid_github_message": "{at_user} 验证失败：请提供有效的GitHub用户名。格式：@机器人 GitHub用户名"
+}
+```
 
-<table>
-  <tr>
-    <td width="50%">
-      <h3>1️⃣ 启用插件</h3>
-      <p>在 AstrBot 插件页中启用本插件，确认已安装并配置完成。</p>
-    </td>
-    <td width="50%">
-      <h3>2️⃣ 验证流程</h3>
-      <p>新成员入群后将收到提示，需在指定时间内@机器人并发送验证词。</p>
-    </td>
-  </tr>
-  <tr>
-    <td width="50%">
-      <h3>3️⃣ 成功通过</h3>
-      <p>用户验证成功后将收到欢迎消息，可正常参与群聊。</p>
-    </td>
-    <td width="50%">
-      <h3>4️⃣ 未验证处理</h3>
-      <p>验证超时的用户将收到警告并在延迟后被自动踢出。</p>
-    </td>
-  </tr>
-</table>
+### 支持的变量
+
+- `{member_name}` - 新成员@标记
+- `{at_user}` - 用户@标记
+- `{timeout}` - 超时时间（分钟）
+- `{repo}` - GitHub仓库名
+- `{countdown}` - 倒计时秒数
+
+## 📝 使用说明
+
+### 验证流程
+
+1. **新成员入群** → 系统自动检测
+2. **发送验证提示** → 机器人@新成员并说明验证要求
+3. **用户回复GitHub用户名** → 格式：`@机器人 GitHub用户名`
+4. **系统验证**：
+   - 检查用户是否Star了指定仓库
+   - 检查GitHub用户名是否已被其他QQ绑定
+   - 检查用户名格式是否有效
+5. **验证结果**：
+   - ✅ 成功：绑定账号，发送欢迎消息
+   - ❌ 失败：发送错误提示，超时后踢出群聊
+
+### 错误处理
+
+| 错误类型 | 系统响应 |
+|----------|----------|
+| 未Star仓库 | 提示用户先Star仓库 |
+| GitHub用户名不存在 | 提示用户检查用户名 |
+| 用户名已被绑定 | 提示联系管理员 |
+| 格式错误 | 提示正确的输入格式 |
+| 验证超时 | 发送警告并延迟踢出 |
+
 
 ## ❓ 常见问题
 
 <details>
-<summary><b>机器人未响应新成员？</b></summary>
-<p>请确认机器人是否为管理员，并检查 AstrBot 的事件通知权限设置。</p>
+<summary><b>❓ 如何获取GitHub Token？</b></summary>
+<p>
+1. 访问 <a href="https://github.com/settings/personal-access-tokens">GitHub Personal Access Tokens</a><br>
+2. 点击 "Generate new token"<br>
+3. 设置仓库权限，选择 All repositories 或者 Only select repositories<br>
+4. 添加权限 Metadata
+5. 生成并保存token（格式：ghp_xxxxxxxxxxxxxxxxxxxx）
+</p>
 </details>
 
 <details>
-<summary><b>设置了验证词但无法识别？</b></summary>
-<p>请确保用户消息中包含验证词，并正确 @ 机器人。</p>
+<summary><b>❓ 机器人没有响应新成员入群？</b></summary>
+<p>
+请检查：<br>
+• 机器人是否为群管理员<br>
+• 检查 AstrBot 的事件通知权限<br>
+• 插件是否正确加载（查看日志）<br>
+• GitHub Token和仓库配置是否正确
+</p>
 </details>
 
+<details>
+<summary><b>❓ 提示"验证失败：你没有Star过仓库"？</b></summary>
+<p>
+可能原因：<br>
+• 用户确实没有Star指定仓库<br>
+• GitHub Token权限不足<br>
+• 仓库名称格式错误（应为：owner/repo）<br>
+• GitHub API限制或网络问题
+</p>
+</details>
+
+<details>
+<summary><b>❓ 提示"该GitHub用户名已被其他QQ号绑定"？</b></summary>
+<p>
+说明该GitHub账号已被其他QQ号验证过。如需重新绑定：<br>
+• 联系管理员手动解绑<br>
+• 或使用其他GitHub账号验证
+</p>
+</details>
+
+<details>
+<summary><b>❓ GitHub API请求失败怎么办？</b></summary>
+<p>
+检查以下事项：<br>
+• GitHub Token是否有效且未过期<br>
+• 网络是否能访问GitHub API<br>
+• 是否触发了API速率限制<br>
+• 仓库是否存在且为公开仓库
+</p>
+</details>
 
 ## 📋 更新日志
+
+### v2.0.0 (2025-08-28) 🌟
+- ✨ **重大重构**：完全移除关键词验证，专注GitHub Star验证
+- � **异步架构**：全面迁移到aiosqlite异步数据库操作
+- � **简化流程**：用户只需@机器人并回复GitHub用户名即可
+- � **优化存储**：改进数据库结构和查询性能
+- 🛡️ **增强安全**：完善的输入验证和错误处理
+- � **文档完善**：全新的使用文档和快速开始指南
+- � **代码重构**：模块化设计，提高可维护性
+
 ### v1.2.1 (2025-08-06)
-- ✍️ 修复： 修复了入群欢迎语和验证成功语中昵称重复的问题，并优化了消息模板的动态能力。
-- 🔧 优化： 统一了消息处理逻辑，让插件能够更灵活地配置和生成包含 @ 用户的消息。
-- 📦 增强： 提高了插件的健壮性，确保了消息模板和 @ 占位符能被正确解析和使用。
+- ✍️ 修复：修复了入群欢迎语和验证成功语中昵称重复的问题
+- 🔧 优化：统一了消息处理逻辑，提高消息模板的灵活性
+- 📦 增强：提高了插件的健壮性和配置解析能力
 ### v1.2.0 (2025-08-06)
-- ✍️ 修复： 修复了多项配置未生效的问题，包括 join_prompt 硬编码和 failure_message 占位符未替换。
-- 🔧 优化： 将获取用户昵称的逻辑前置，减少 API 调用次数，并增加了 API 调用的容错处理。
-- 📦 增强： 统一了代码与配置文件的默认值，使插件行为与
+- ✍️ 修复：修复了多项配置未生效的问题
+- 🔧 优化：减少API调用次数，增加容错处理
+- 📦 增强：统一了代码与配置文件的默认值
 
 ### v1.1.1 (2025-06-19)
--  ✍️ 新增对成员退群的处理（防止资源浪费）
-- 🔧 新增对成员主动离开或被踢出群聊，系统会自动清理其验证状态并取消超时任务
-
+- ✍️ 新增：对成员退群的处理（防止资源浪费）
+- 🔧 优化：自动清理验证状态并取消超时任务
 
 ### v1.0.4 (2025-06-01)
--  ✍️ 修复退群后无通知的错误
-- 🔧 优化逻辑结构，统一用户 ID 和群号处理
-- 🧹 清理冗余任务与状态数据
-- 📦 文档更新，增强使用说明
+- ✍️ 修复：退群后无通知的错误
+- 🔧 优化：逻辑结构，统一用户ID和群号处理
+- 🧹 清理：冗余任务与状态数据
 
 ### v1.0.2 (2025-04-22)
-- ✨ 修复部分 bug  
-- 📝 提升代码可读性  
+- ✨ 修复：部分bug
+- 📝 提升：代码可读性
 
 ### v1.0.1 (2025-04-21)
-- 🐛 修复验证关键词匹配逻辑  
-- ✨ 增加用户ID类型兼容处理  
-- 📝 完善日志记录  
+- 🐛 修复：验证关键词匹配逻辑
+- ✨ 增加：用户ID类型兼容处理
+- 📝 完善：日志记录
 
 ### v1.0.0 (2025-04-20)
-- 🚀 插件首次发布  
-- ✅ 基础验证功能实现  
-- 🔧 可配置验证关键词和超时时间  
+- 🚀 插件首次发布
+- ✅ 基础验证功能实现
+- 🔧 可配置验证关键词和超时时间
 
 ---
 
-### 插件作者: huotuo146
-
-- 🌐 [GitHub](https://github.com/huntuo146)  
-- 📧 Email: [2996603469@qq.com]  
-- 🔗 项目地址: [astrbot_plugin_Group-Verification](https://github.com/huntuo146/astrbot_plugin_Group-Verification)
-
-## 📜 许可证
-
-本项目采用 [MIT 许可证](LICENSE) 进行开源。
-
----
+## 👥 贡献者
 
 <div align="center">
-<p>如果您觉得这个插件有用，请考虑给项目一个 ⭐Star！</p>
-<p>有问题或建议？欢迎 <a href="https://github.com/huntuo146/astrbot_plugin_Group-Verification/issues/new">提交 Issue</a></p>
-<sub>Made with ❤️ by huotuo146</sub>
+
+### 插件重构者：Qian23333
+
+[![GitHub](https://img.shields.io/badge/GitHub-Qian23333-yellow?logo=github)](https://github.com/Qian23333)
+
+
+### 原插件作者：huotuo146
+
+[![GitHub](https://img.shields.io/badge/GitHub-huotuo146-blue?logo=github)](https://github.com/huntuo146)
+[![Email](https://img.shields.io/badge/Email-2996603469@qq.com-red?logo=gmail)](mailto:2996603469@qq.com)
+
+
 </div>
+
+
+本项目采用 [MIT 许可证](LICENSE) 进行开源
