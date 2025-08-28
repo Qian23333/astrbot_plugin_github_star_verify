@@ -3,55 +3,57 @@ import httpx
 import asyncio
 import time
 import os
-from typing import List, Optional
+from typing import List, Optional, Dict
 from astrbot.api import logger
 from astrbot.core.utils.astrbot_path import get_astrbot_data_path
 
+# 数据库文件路径
 DB_PATH = os.path.join(
     get_astrbot_data_path(),
     "plugin_data",
-    "group_verification_github_star",
+    "github_star_verify",
     "github_star.db",
 )
 
 
+async def init_database():
+    """初始化数据库表结构"""
+    # 确保数据库目录存在
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+
+    async with aiosqlite.connect(DB_PATH) as conn:
+        # 创建GitHub Star用户表，使用复合主键
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS github_stars (
+                github_id TEXT NOT NULL,
+                repo TEXT NOT NULL,
+                qq_id TEXT,
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL,
+                PRIMARY KEY (github_id, repo)
+            )
+        """)
+
+        # 创建索引（主键字段会自动创建索引，这里只需要为其他字段创建）
+        await conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_github_stars_qq_id ON github_stars(qq_id)
+        """)
+        await conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_github_stars_repo ON github_stars(repo)
+        """)
+
+        await conn.commit()
+
+    logger.info(f"[GitHub Manager] 数据库初始化完成: {DB_PATH}")
+
+
 class GitHubStarManager:
-    """GitHub Star用户管理器"""
+    """单仓库GitHub Star管理器"""
 
     def __init__(self, github_token: str, github_repo: str):
         self.github_token = github_token
         self.github_repo = github_repo
         self.http_client = httpx.AsyncClient(timeout=30.0)
-
-    async def init_database(self):
-        """初始化数据库表"""
-        # 确保数据库目录存在
-        os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-
-        async with aiosqlite.connect(DB_PATH) as conn:
-            # 创建GitHub Star用户表
-            await conn.execute("""
-                CREATE TABLE IF NOT EXISTS github_stars (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    github_id TEXT NOT NULL UNIQUE,
-                    qq_id TEXT,
-                    created_at INTEGER NOT NULL,
-                    updated_at INTEGER NOT NULL,
-                    UNIQUE(github_id)
-                )
-            """)
-
-            # 创建索引
-            await conn.execute("""
-                CREATE INDEX IF NOT EXISTS idx_github_stars_github_id ON github_stars(github_id)
-            """)
-            await conn.execute("""
-                CREATE INDEX IF NOT EXISTS idx_github_stars_qq_id ON github_stars(qq_id)
-            """)
-
-            await conn.commit()
-
-        logger.info(f"[GitHub Manager] 数据库初始化完成: {DB_PATH}")
 
     async def fetch_stargazers(self) -> List[str]:
         """获取仓库的所有Star用户"""
@@ -274,10 +276,10 @@ class GitHubStarManager:
             async with aiosqlite.connect(DB_PATH) as conn:
                 await conn.execute(
                     """
-                    INSERT OR REPLACE INTO github_stars (github_id, created_at, updated_at)
-                    VALUES (?, ?, ?)
+                    INSERT OR REPLACE INTO github_stars (github_id, repo, created_at, updated_at)
+                    VALUES (?, ?, ?, ?)
                     """,
-                    (github_username, current_time, current_time),
+                    (github_username, self.github_repo, current_time, current_time),
                 )
                 await conn.commit()
                 logger.info(f"[GitHub Manager] 已将用户 {github_username} 保存到数据库")
@@ -290,8 +292,11 @@ class GitHubStarManager:
 
         try:
             async with aiosqlite.connect(DB_PATH) as conn:
-                # 获取数据库中现有的GitHub用户
-                async with conn.execute("SELECT github_id FROM github_stars") as cursor:
+                # 获取数据库中现有的GitHub用户（针对当前仓库）
+                async with conn.execute(
+                    "SELECT github_id FROM github_stars WHERE repo = ?",
+                    (self.github_repo,),
+                ) as cursor:
                     rows = await cursor.fetchall()
                     existing_users = {row[0] for row in rows}
 
@@ -300,32 +305,27 @@ class GitHubStarManager:
                 for github_id in new_users:
                     await conn.execute(
                         """
-                        INSERT OR IGNORE INTO github_stars (github_id, created_at, updated_at)
-                        VALUES (?, ?, ?)
+                        INSERT OR IGNORE INTO github_stars (github_id, repo, created_at, updated_at)
+                        VALUES (?, ?, ?, ?)
                     """,
-                        (github_id, current_time, current_time),
+                        (github_id, self.github_repo, current_time, current_time),
                     )
-
-                # 可选：删除不再是Star用户的记录
-                # 注意：这可能会删除已绑定QQ号的用户，谨慎使用
-                # removed_users = existing_users - set(stargazers)
-                # for github_id in removed_users:
-                #     await conn.execute("DELETE FROM github_stars WHERE github_id = ?", (github_id,))
 
                 await conn.commit()
                 logger.info(
-                    f"[GitHub Manager] 同步完成: 新增 {len(new_users)} 个Star用户"
+                    f"[GitHub Manager] 同步完成: 新增 {len(new_users)} 个Star用户到仓库 {self.github_repo}"
                 )
 
         except Exception as e:
             logger.error(f"[GitHub Manager] 同步数据失败: {e}")
 
-    async def is_stargazer(self, github_id: str) -> bool:
-        """检查用户是否为Star用户"""
+    async def is_stargazer_for_repo(self, github_id: str, repo: str) -> bool:
+        """检查用户是否为指定仓库的Star用户"""
         try:
             async with aiosqlite.connect(DB_PATH) as conn:
                 async with conn.execute(
-                    "SELECT 1 FROM github_stars WHERE github_id = ?", (github_id,)
+                    "SELECT 1 FROM github_stars WHERE github_id = ? AND repo = ?",
+                    (github_id, repo),
                 ) as cursor:
                     result = await cursor.fetchone()
                     return result is not None
@@ -333,13 +333,15 @@ class GitHubStarManager:
             logger.error(f"[GitHub Manager] 检查Star状态失败: {e}")
             return False
 
-    async def is_github_id_bound(self, github_id: str) -> Optional[str]:
-        """检查GitHub ID是否已被绑定，返回绑定的QQ号"""
+    async def is_github_id_bound_to_repo(
+        self, github_id: str, repo: str
+    ) -> Optional[str]:
+        """检查GitHub ID是否已被绑定到指定仓库，返回绑定的QQ号"""
         try:
             async with aiosqlite.connect(DB_PATH) as conn:
                 async with conn.execute(
-                    "SELECT qq_id FROM github_stars WHERE github_id = ? AND qq_id IS NOT NULL",
-                    (github_id,),
+                    "SELECT qq_id FROM github_stars WHERE github_id = ? AND repo = ? AND qq_id IS NOT NULL",
+                    (github_id, repo),
                 ) as cursor:
                     result = await cursor.fetchone()
                     return result[0] if result else None
@@ -347,12 +349,13 @@ class GitHubStarManager:
             logger.error(f"[GitHub Manager] 检查绑定状态失败: {e}")
             return None
 
-    async def is_qq_bound(self, qq_id: str) -> Optional[str]:
-        """检查QQ号是否已绑定GitHub ID，返回绑定的GitHub ID"""
+    async def is_qq_bound_to_repo(self, qq_id: str, repo: str) -> Optional[str]:
+        """检查QQ号是否已绑定到指定仓库的GitHub ID，返回绑定的GitHub ID"""
         try:
             async with aiosqlite.connect(DB_PATH) as conn:
                 async with conn.execute(
-                    "SELECT github_id FROM github_stars WHERE qq_id = ?", (qq_id,)
+                    "SELECT github_id FROM github_stars WHERE qq_id = ? AND repo = ?",
+                    (qq_id, repo),
                 ) as cursor:
                     result = await cursor.fetchone()
                     return result[0] if result else None
@@ -360,16 +363,18 @@ class GitHubStarManager:
             logger.error(f"[GitHub Manager] 检查QQ绑定状态失败: {e}")
             return None
 
-    async def bind_github_qq(self, github_id: str, qq_id: str) -> bool:
-        """绑定GitHub ID和QQ号"""
+    async def bind_github_qq_to_repo(
+        self, github_id: str, qq_id: str, repo: str
+    ) -> bool:
+        """绑定GitHub ID和QQ号到指定仓库"""
         current_time = int(time.time())
 
         try:
-            # 先检查QQ号是否已经绑定了其他GitHub ID
-            existing_github = await self.is_qq_bound(qq_id)
+            # 先检查QQ号是否已经绑定了其他GitHub ID（在同一个仓库）
+            existing_github = await self.is_qq_bound_to_repo(qq_id, repo)
             if existing_github and existing_github != github_id:
                 logger.warning(
-                    f"[GitHub Manager] QQ号 {qq_id} 已绑定GitHub用户 {existing_github}"
+                    f"[GitHub Manager] QQ号 {qq_id} 已绑定GitHub用户 {existing_github} 在仓库 {repo}"
                 )
                 return False
 
@@ -379,9 +384,9 @@ class GitHubStarManager:
                     """
                     UPDATE github_stars
                     SET qq_id = ?, updated_at = ?
-                    WHERE github_id = ?
+                    WHERE github_id = ? AND repo = ?
                 """,
-                    (qq_id, current_time, github_id),
+                    (qq_id, current_time, github_id, repo),
                 )
 
                 await conn.commit()
@@ -389,11 +394,11 @@ class GitHubStarManager:
 
                 if success:
                     logger.info(
-                        f"[GitHub Manager] 成功绑定: GitHub用户 {github_id} <-> QQ号 {qq_id}"
+                        f"[GitHub Manager] 成功绑定: GitHub用户 {github_id} <-> QQ号 {qq_id} 在仓库 {repo}"
                     )
                 else:
                     logger.warning(
-                        f"[GitHub Manager] 绑定失败: GitHub用户 {github_id} 不存在"
+                        f"[GitHub Manager] 绑定失败: GitHub用户 {github_id} 不存在于仓库 {repo}"
                     )
 
                 return success
@@ -402,8 +407,8 @@ class GitHubStarManager:
             logger.error(f"[GitHub Manager] 绑定失败: {e}")
             return False
 
-    async def unbind_qq(self, qq_id: str) -> bool:
-        """解绑QQ号"""
+    async def unbind_qq_from_repo(self, qq_id: str, repo: str) -> bool:
+        """从指定仓库解绑QQ号"""
         current_time = int(time.time())
 
         try:
@@ -412,16 +417,16 @@ class GitHubStarManager:
                     """
                     UPDATE github_stars
                     SET qq_id = NULL, updated_at = ?
-                    WHERE qq_id = ?
+                    WHERE qq_id = ? AND repo = ?
                 """,
-                    (current_time, qq_id),
+                    (current_time, qq_id, repo),
                 )
 
                 await conn.commit()
                 success = cursor.rowcount > 0
 
                 if success:
-                    logger.info(f"[GitHub Manager] 成功解绑QQ号: {qq_id}")
+                    logger.info(f"[GitHub Manager] 成功解绑QQ号: {qq_id} 从仓库 {repo}")
 
                 return success
 
@@ -429,23 +434,26 @@ class GitHubStarManager:
             logger.error(f"[GitHub Manager] 解绑失败: {e}")
             return False
 
-    async def get_stars_count(self) -> int:
-        """获取数据库中Star用户总数"""
+    async def get_stars_count_for_repo(self, repo: str) -> int:
+        """获取指定仓库的Star用户总数"""
         try:
             async with aiosqlite.connect(DB_PATH) as conn:
-                async with conn.execute("SELECT COUNT(*) FROM github_stars") as cursor:
+                async with conn.execute(
+                    "SELECT COUNT(*) FROM github_stars WHERE repo = ?", (repo,)
+                ) as cursor:
                     result = await cursor.fetchone()
                     return result[0] if result else 0
         except Exception as e:
             logger.error(f"[GitHub Manager] 获取Star用户数量失败: {e}")
             return 0
 
-    async def get_bound_count(self) -> int:
-        """获取已绑定QQ号的用户数量"""
+    async def get_bound_count_for_repo(self, repo: str) -> int:
+        """获取指定仓库已绑定QQ号的用户数量"""
         try:
             async with aiosqlite.connect(DB_PATH) as conn:
                 async with conn.execute(
-                    "SELECT COUNT(*) FROM github_stars WHERE qq_id IS NOT NULL"
+                    "SELECT COUNT(*) FROM github_stars WHERE qq_id IS NOT NULL AND repo = ?",
+                    (repo,),
                 ) as cursor:
                     result = await cursor.fetchone()
                     return result[0] if result else 0
@@ -461,3 +469,140 @@ class GitHubStarManager:
 
     def __str__(self):
         return f"GitHubStarManager(repo={self.github_repo}, db={DB_PATH})"
+
+
+class MultiRepoGitHubStarManager:
+    """多仓库GitHub Star管理器"""
+
+    def __init__(self, github_token: str, default_repo: str, group_repo_map: Dict[str, str]):
+        self.github_token = github_token
+        self.default_repo = default_repo
+        self.group_repo_map = group_repo_map or {}
+        self.http_client = httpx.AsyncClient(timeout=30.0)
+        self._managers_cache: Dict[str, GitHubStarManager] = {}
+
+    async def init_database(self):
+        """初始化数据库 - 桥接方法"""
+        await init_database()
+
+    def get_manager_for_repo(self, repo: str) -> GitHubStarManager:
+        """获取指定仓库的管理器实例"""
+        if repo not in self._managers_cache:
+            self._managers_cache[repo] = GitHubStarManager(self.github_token, repo)
+        return self._managers_cache[repo]
+
+    def get_repo_for_group(self, group_id: str) -> Optional[str]:
+        """根据群组ID获取对应的仓库"""
+        repo = self.group_repo_map.get(group_id)
+        if repo:
+            return repo
+        elif self.default_repo:
+            return self.default_repo
+        else:
+            return None
+
+    async def sync_stargazers_for_repo(self, repo: str) -> bool:
+        """同步指定仓库的Star用户"""
+        try:
+            manager = self.get_manager_for_repo(repo)
+            stargazers = await manager.fetch_stargazers()
+
+            if stargazers:
+                logger.info(
+                    f"[Multi-Repo Manager] 成功获取 {len(stargazers)} 个Star用户，开始同步到数据库..."
+                )
+                await manager.sync_stargazers(stargazers)
+                return True
+            else:
+                logger.info(
+                    f"[Multi-Repo Manager] 仓库 {repo} 当前没有Star用户，数据库已初始化"
+                )
+                return True
+        except Exception as e:
+            logger.error(f"[Multi-Repo Manager] 同步仓库 {repo} 的Star用户失败: {e}")
+            return False
+
+    async def sync_all_repos(self) -> Dict[str, bool]:
+        """同步所有配置的仓库"""
+        results = {}
+
+        # 同步默认仓库（如果配置了）
+        if self.default_repo:
+            results[self.default_repo] = await self.sync_stargazers_for_repo(self.default_repo)
+
+        # 同步所有群组配置的仓库
+        unique_repos = set(self.group_repo_map.values())
+        for repo in unique_repos:
+            if repo and repo != self.default_repo:  # 避免重复同步
+                results[repo] = await self.sync_stargazers_for_repo(repo)
+
+        return results
+
+    async def check_user_starred_directly(self, github_username: str, repo: str) -> bool:
+        """直接通过GitHub API检查用户是否Star了指定仓库"""
+        manager = self.get_manager_for_repo(repo)
+        return await manager.check_user_starred_directly(github_username)
+
+    async def is_stargazer(self, github_id: str, repo: str) -> bool:
+        """检查用户是否为指定仓库的Star用户"""
+        manager = self.get_manager_for_repo(repo)
+        return await manager.is_stargazer_for_repo(github_id, repo)
+
+    async def is_github_id_bound_to_repo(self, github_id: str, repo: str) -> Optional[str]:
+        """检查GitHub ID是否已被绑定到指定仓库，返回绑定的QQ号"""
+        manager = self.get_manager_for_repo(repo)
+        return await manager.is_github_id_bound_to_repo(github_id, repo)
+
+    async def is_qq_bound_to_repo(self, qq_id: str, repo: str) -> Optional[str]:
+        """检查QQ号是否已绑定到指定仓库的GitHub ID，返回绑定的GitHub ID"""
+        manager = self.get_manager_for_repo(repo)
+        return await manager.is_qq_bound_to_repo(qq_id, repo)
+
+    async def bind_github_qq_to_repo(self, github_id: str, qq_id: str, repo: str) -> bool:
+        """绑定GitHub ID和QQ号到指定仓库"""
+        manager = self.get_manager_for_repo(repo)
+        return await manager.bind_github_qq_to_repo(github_id, qq_id, repo)
+
+    async def unbind_qq_from_repo(self, qq_id: str, repo: str) -> bool:
+        """从指定仓库解绑QQ号"""
+        manager = self.get_manager_for_repo(repo)
+        return await manager.unbind_qq_from_repo(qq_id, repo)
+
+    async def get_stars_count_for_repo(self, repo: str) -> int:
+        """获取指定仓库的Star用户总数"""
+        manager = self.get_manager_for_repo(repo)
+        return await manager.get_stars_count_for_repo(repo)
+
+    async def get_bound_count_for_repo(self, repo: str) -> int:
+        """获取指定仓库已绑定QQ号的用户数量"""
+        manager = self.get_manager_for_repo(repo)
+        return await manager.get_bound_count_for_repo(repo)
+
+    async def get_qq_bound_repos(self, qq_id: str) -> List[str]:
+        """获取QQ号绑定的所有仓库"""
+        bound_repos = []
+
+        # 检查默认仓库（如果配置了）
+        if self.default_repo and await self.is_qq_bound_to_repo(qq_id, self.default_repo):
+            bound_repos.append(self.default_repo)
+
+        # 检查所有群组配置的仓库
+        unique_repos = set(self.group_repo_map.values())
+        for repo in unique_repos:
+            if repo and repo != self.default_repo and await self.is_qq_bound_to_repo(qq_id, repo):
+                bound_repos.append(repo)
+
+        return bound_repos
+
+    async def close(self):
+        """关闭HTTP客户端"""
+        if self.http_client:
+            await self.http_client.aclose()
+            logger.debug("[Multi-Repo Manager] HTTP客户端已关闭")
+
+        # 关闭所有缓存的管理器
+        for manager in self._managers_cache.values():
+            await manager.close()
+
+    def __str__(self):
+        return f"MultiRepoGitHubStarManager(default_repo={self.default_repo}, group_count={len(self.group_repo_map)})"

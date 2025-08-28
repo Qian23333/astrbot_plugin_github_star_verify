@@ -3,13 +3,19 @@
     "description": "GitHub API Token（必需）",
     "type": "string",
     "default": "",
-    "hint": "获取地址：https://github.com/settings/tokens，需要 public_repo 权限"
+    "hint": "获取地址：https://github.com/settings/tokens"
   },
   "github_repo": {
-    "description": "GitHub仓库（必需）",
+    "description": "默认GitHub仓库（可选）",
     "type": "string",
-    "default": "SilianZ/astrbot",
-    "hint": "要验证Star的仓库，格式：owner/repo"
+    "default": "AstrBotDevs/AstrBot",
+    "hint": "默认要验证Star的仓库，格式：owner/repo。当群组未在group_repo_map中配置时使用此仓库"
+  },
+  "group_repo_map": {
+    "description": "群组仓库映射配置",
+    "type": "list",
+    "default": [],
+    "hint": "群号与仓库的映射关系，每行一个映射，格式：群号:仓库。例如：123456789:owner/repo。优先级高于默认仓库"
   },
   "verification_timeout": {
     "description": "验证超时时间（秒）",
