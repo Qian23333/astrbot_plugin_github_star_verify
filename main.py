@@ -440,7 +440,7 @@ class GitHubStarVerifyPlugin(Star):
 
     @filter.permission_type(filter.PermissionType.ADMIN)
     @github_commands.command("sync")
-    async def sync_command(self, event: AstrMessageEvent, repo: str = None):
+    async def sync_command(self, event: AstrMessageEvent, repo: str = ""):
         """同步GitHub Star用户数据"""
         # 如果提供了 repo，则同步指定仓库
         if repo:
@@ -530,7 +530,7 @@ class GitHubStarVerifyPlugin(Star):
 
         yield event.plain_result(status_msg)
 
-    @github_commands.command("bind")
+    @github_commands.command("bind", alias={"绑定"})
     async def bind_github_command(self, event: AstrMessageEvent, github_username: str):
         """绑定GitHub ID"""
         if event.get_platform_name() != "aiocqhttp":
@@ -541,7 +541,7 @@ class GitHubStarVerifyPlugin(Star):
             return
 
         if not github_username:
-            yield event.plain_result("请提供GitHub用户名。格式：/github bind <GitHub用户名>")
+            yield event.plain_result("请提供GitHub用户名。格式：/github [bind|绑定] <GitHub用户名>")
             return
 
         uid = str(event.get_sender_id())
@@ -600,7 +600,7 @@ class GitHubStarVerifyPlugin(Star):
         else:
             yield event.plain_result("❌ 绑定失败，请稍后重试。")
 
-    @github_commands.command("unbind")
+    @github_commands.command("unbind", alias={"解绑"})
     async def unbind_github_command(self, event: AstrMessageEvent):
         """解绑GitHub ID"""
         if event.get_platform_name() != "aiocqhttp":
@@ -638,7 +638,7 @@ class GitHubStarVerifyPlugin(Star):
         else:
             yield event.plain_result("❌ 解绑失败，请稍后重试。")
 
-    @github_commands.command("mystatus")
+    @github_commands.command("mystatus", alias={"状态"})
     async def user_status_command(self, event: AstrMessageEvent):
         """查看自己的绑定状态"""
         if event.get_platform_name() != "aiocqhttp":
@@ -688,18 +688,18 @@ class GitHubStarVerifyPlugin(Star):
                 f"❌ 你还没有绑定任何GitHub用户。\n🎯 当前仓库: {current_repo_display}\n使用 /github bind <用户名> 进行绑定。"
             )
 
-    @github_commands.command("help")
+    @github_commands.command("help", alias={"帮助"})
     async def user_help_command(self, event: AstrMessageEvent):
         """显示帮助信息"""
         help_msg = """GitHub用户命令：
-/github bind <用户名> - 绑定GitHub用户名到当前群组仓库
-/github unbind - 解绑当前群组仓库的GitHub用户
-/github mystatus - 查看绑定状态
-/github help - 显示帮助信息
+/github [bind|绑定] <用户名> - 绑定GitHub用户名到当前群组仓库
+/github [unbind|解绑] - 解绑当前群组仓库的GitHub用户
+/github [mystatus|状态] - 查看绑定状态
+/github [help|帮助] - 显示帮助信息
 
 管理员命令：
-/github sync [仓库] - 同步GitHub Star用户数据（仅管理员）
-/github status - 查看插件状态（仅管理员）
+/github sync [仓库] - 同步GitHub Star用户数据
+/github status - 查看插件状态
 
 注意：
 - 只能绑定已经Star过对应仓库的GitHub用户
