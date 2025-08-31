@@ -50,10 +50,15 @@ async def init_database():
 class GitHubStarManager:
     """单仓库GitHub Star管理器"""
 
-    def __init__(self, github_token: str, github_repo: str):
+    def __init__(
+        self,
+        github_token: str,
+        github_repo: str,
+        http_client: httpx.AsyncClient,
+    ):
         self.github_token = github_token
         self.github_repo = github_repo
-        self.http_client = httpx.AsyncClient(timeout=30.0)
+        self.http_client = http_client
 
     async def fetch_stargazers(self) -> List[str]:
         """获取仓库的所有Star用户"""
@@ -471,12 +476,6 @@ class GitHubStarManager:
             logger.error(f"[GitHub Manager] 获取绑定用户数量失败: {e}")
             return 0
 
-    async def close(self):
-        """关闭HTTP客户端"""
-        if self.http_client:
-            await self.http_client.aclose()
-            logger.debug("[GitHub Manager] HTTP客户端已关闭")
-
     def __str__(self):
         return f"GitHubStarManager(repo={self.github_repo}, db={DB_PATH})"
 
@@ -498,7 +497,11 @@ class MultiRepoGitHubStarManager:
     def get_manager_for_repo(self, repo: str) -> GitHubStarManager:
         """获取指定仓库的管理器实例"""
         if repo not in self._managers_cache:
-            self._managers_cache[repo] = GitHubStarManager(self.github_token, repo)
+            self._managers_cache[repo] = GitHubStarManager(
+                github_token=self.github_token,
+                github_repo=repo,
+                http_client=self.http_client,
+            )
         return self._managers_cache[repo]
 
     def get_repo_for_group(self, group_id: str) -> Optional[str]:
@@ -614,10 +617,6 @@ class MultiRepoGitHubStarManager:
         if self.http_client:
             await self.http_client.aclose()
             logger.debug("[Multi-Repo Manager] HTTP客户端已关闭")
-
-        # 关闭所有缓存的管理器
-        for manager in self._managers_cache.values():
-            await manager.close()
 
     def __str__(self):
         return f"MultiRepoGitHubStarManager(default_repo={self.default_repo}, group_count={len(self.group_repo_map)})"
