@@ -6,7 +6,6 @@
 
 [功能简介](#功能简介) •
 [快速开始](#快速开始) •
-[安装与启用](#安装与启用) •
 [WebUI 配置](#webui-配置) •
 [使用说明](#使用说明) •
 [常见问题](#常见问题) •
@@ -36,7 +35,7 @@
 2. 点击 "Generate new token"
 3. 设置名称，选择 `All repositories` 或者 `Only select repositories` 权限
 4. 添加 Permission 必须包含 Metadata
-5. 生成并复制token（格式：`ghp_xxxxxxxxxxxxxxxxxxxx`）
+5. 生成并复制token
 
 注意：部分组织或仓库对个人访问令牌（PAT）有策略限制，例如要求使用 Fine-grained token、限制有效期（可能不接受超过 1 年的长期 token），或需要组织管理员批准。请根据目标仓库/组织的访问策略生成 token。
 
