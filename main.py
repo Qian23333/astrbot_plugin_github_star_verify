@@ -433,20 +433,17 @@ class GitHubStarVerifyPlugin(Star):
             self.pending.pop(uid, None)
             self.timeout_tasks.pop(uid, None)
 
-    # GitHub 管理指令组
-    @filter.command_group("github")
+    # GitHub 指令组
+    @filter.command_group("github", alias={"gh"})
     def github_commands(self):
         pass
 
     @filter.permission_type(filter.PermissionType.ADMIN)
     @github_commands.command("sync")
-    async def sync_command(self, event: AstrMessageEvent):
+    async def sync_command(self, event: AstrMessageEvent, repo: str = None):
         """同步GitHub Star用户数据"""
-        # 解析参数：/github sync [repo]
-        args = event.message_str.strip().split()
-        if len(args) >= 3:
-            # 指定仓库同步
-            repo = args[2]
+        # 如果提供了 repo，则同步指定仓库
+        if repo:
             yield event.plain_result(f"开始同步仓库 {repo} 的Star用户数据...")
             success = await self.sync_stargazers(repo)
             if success:
@@ -457,35 +454,36 @@ class GitHubStarVerifyPlugin(Star):
                 )
             else:
                 yield event.plain_result(f"同步仓库 {repo} 失败，请检查日志。")
+            return
+
+        # 未提供 repo，则同步所有仓库
+        yield event.plain_result("开始同步所有仓库的Star用户数据...")
+        success = await self.sync_stargazers()
+        if success:
+            # 显示所有仓库的统计
+            result_msg = "同步完成！各仓库统计：\n"
+
+            # 默认仓库（如果配置了）
+            if self.default_repo:
+                default_stars = await self.github_manager.get_stars_count_for_repo(
+                    self.default_repo
+                )
+                default_bound = await self.github_manager.get_bound_count_for_repo(
+                    self.default_repo
+                )
+                result_msg += f"📦 {self.default_repo}: {default_stars} Star用户，{default_bound} 已绑定\n"
+
+            # 群组配置的仓库
+            unique_repos = set(self.group_repo_map.values())
+            for repo in unique_repos:
+                if repo and repo != self.default_repo:
+                    stars = await self.github_manager.get_stars_count_for_repo(repo)
+                    bound = await self.github_manager.get_bound_count_for_repo(repo)
+                    result_msg += f"📦 {repo}: {stars} Star用户，{bound} 已绑定\n"
+
+            yield event.plain_result(result_msg.strip())
         else:
-            # 同步所有仓库
-            yield event.plain_result("开始同步所有仓库的Star用户数据...")
-            success = await self.sync_stargazers()
-            if success:
-                # 显示所有仓库的统计
-                result_msg = "同步完成！各仓库统计：\n"
-
-                # 默认仓库（如果配置了）
-                if self.default_repo:
-                    default_stars = await self.github_manager.get_stars_count_for_repo(
-                        self.default_repo
-                    )
-                    default_bound = await self.github_manager.get_bound_count_for_repo(
-                        self.default_repo
-                    )
-                    result_msg += f"📦 {self.default_repo}: {default_stars} Star用户，{default_bound} 已绑定\n"
-
-                # 群组配置的仓库
-                unique_repos = set(self.group_repo_map.values())
-                for repo in unique_repos:
-                    if repo and repo != self.default_repo:
-                        stars = await self.github_manager.get_stars_count_for_repo(repo)
-                        bound = await self.github_manager.get_bound_count_for_repo(repo)
-                        result_msg += f"📦 {repo}: {stars} Star用户，{bound} 已绑定\n"
-
-                yield event.plain_result(result_msg.strip())
-            else:
-                yield event.plain_result("同步失败，请检查日志。")
+            yield event.plain_result("同步失败，请检查日志。")
 
     @filter.permission_type(filter.PermissionType.ADMIN)
     @github_commands.command("status")
@@ -533,7 +531,7 @@ class GitHubStarVerifyPlugin(Star):
         yield event.plain_result(status_msg)
 
     @github_commands.command("bind")
-    async def bind_github_command(self, event: AstrMessageEvent):
+    async def bind_github_command(self, event: AstrMessageEvent, github_username: str):
         """绑定GitHub ID"""
         if event.get_platform_name() != "aiocqhttp":
             return
@@ -542,15 +540,10 @@ class GitHubStarVerifyPlugin(Star):
             yield event.plain_result("GitHub管理器未初始化，请联系管理员。")
             return
 
-        # 提取GitHub用户名
-        args = event.message_str.strip().split()
-        if len(args) < 3:
-            yield event.plain_result(
-                "请提供GitHub用户名。格式：/github bind <GitHub用户名>"
-            )
+        if not github_username:
+            yield event.plain_result("请提供GitHub用户名。格式：/github bind <GitHub用户名>")
             return
 
-        github_username = args[2]
         uid = str(event.get_sender_id())
         group_id = event.get_group_id()
 
