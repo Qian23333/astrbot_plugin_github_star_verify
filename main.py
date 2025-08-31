@@ -303,10 +303,15 @@ class QQGitHubStarVerifyPlugin(Star):
             )
             return
 
-        # 直接通过GitHub API验证用户是否Star了仓库
-        is_star = await self.github_manager.check_user_starred_directly(
-            github_username, repo
-        )
+        # 先用数据库快速判定，再调用GitHub API兜底验证
+        is_star = await self.github_manager.is_stargazer(github_username, repo)
+        if not is_star:
+            is_star = await self.github_manager.check_user_starred_directly(
+                github_username, repo
+            )
+            # 记录到数据库
+            if is_star:
+                await self.github_manager.record_stargazer(github_username, repo)
         if not is_star:
             await event.bot.api.call_action(
                 "send_group_msg",

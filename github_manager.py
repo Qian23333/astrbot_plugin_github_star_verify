@@ -263,8 +263,6 @@ class GitHubStarManager:
 
             # 根据是否找到仓库返回结果
             if user_starred:
-                # 将用户信息写入数据库
-                await self._save_user_to_db(github_username)
                 return True
             else:
                 logger.info(
@@ -276,22 +274,27 @@ class GitHubStarManager:
             logger.error(f"[GitHub Manager] 检查Star状态异常: {e}")
             return False
 
-    async def _save_user_to_db(self, github_username: str):
+    async def record_stargazer(self, github_username: str) -> bool:
         """将找到的Star用户保存到数据库"""
         try:
             current_time = int(time.time())
             async with aiosqlite.connect(DB_PATH) as conn:
+                # 使用 UPSERT：若(github_id, repo)已存在，仅更新updated_at，保留既有的qq_id与created_at
                 await conn.execute(
                     """
-                    INSERT OR REPLACE INTO github_stars (github_id, repo, created_at, updated_at)
+                    INSERT INTO github_stars (github_id, repo, created_at, updated_at)
                     VALUES (?, ?, ?, ?)
+                    ON CONFLICT(github_id, repo) DO UPDATE SET
+                        updated_at = excluded.updated_at
                     """,
                     (github_username, self.github_repo, current_time, current_time),
                 )
                 await conn.commit()
                 logger.info(f"[GitHub Manager] 已将用户 {github_username} 保存到数据库")
+                return True
         except Exception as e:
             logger.warning(f"[GitHub Manager] 保存用户到数据库失败: {e}")
+            return False
 
     async def sync_stargazers(self, stargazers: List[str]):
         """同步Star用户到数据库"""
@@ -549,6 +552,11 @@ class MultiRepoGitHubStarManager:
         """直接通过GitHub API检查用户是否Star了指定仓库"""
         manager = self.get_manager_for_repo(repo)
         return await manager.check_user_starred_directly(github_username)
+
+    async def record_stargazer(self, github_username: str, repo: str) -> bool:
+        """记录Star用户到数据库"""
+        manager = self.get_manager_for_repo(repo)
+        return await manager.record_stargazer(github_username)
 
     async def is_stargazer(self, github_id: str, repo: str) -> bool:
         """检查用户是否为指定仓库的Star用户"""
