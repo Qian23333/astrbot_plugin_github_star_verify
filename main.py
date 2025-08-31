@@ -435,11 +435,10 @@ class GitHubStarVerifyPlugin(Star):
 
     # GitHub 管理指令组
     @filter.command_group("github")
-    @filter.permission_type(filter.PermissionType.ADMIN)
     def github_commands(self):
-        """GitHub Star验证管理指令"""
         pass
 
+    @filter.permission_type(filter.PermissionType.ADMIN)
     @github_commands.command("sync")
     async def sync_command(self, event: AstrMessageEvent):
         """同步GitHub Star用户数据"""
@@ -488,6 +487,7 @@ class GitHubStarVerifyPlugin(Star):
             else:
                 yield event.plain_result("同步失败，请检查日志。")
 
+    @filter.permission_type(filter.PermissionType.ADMIN)
     @github_commands.command("status")
     async def status_command(self, event: AstrMessageEvent):
         """查看插件状态"""
@@ -532,13 +532,7 @@ class GitHubStarVerifyPlugin(Star):
 
         yield event.plain_result(status_msg)
 
-    # 用户命令组
-    @filter.command_group("github")
-    def user_commands(self):
-        """用户GitHub命令组"""
-        pass
-
-    @user_commands.command("bind")
+    @github_commands.command("bind")
     async def bind_github_command(self, event: AstrMessageEvent):
         """绑定GitHub ID"""
         if event.get_platform_name() != "aiocqhttp":
@@ -613,7 +607,7 @@ class GitHubStarVerifyPlugin(Star):
         else:
             yield event.plain_result("❌ 绑定失败，请稍后重试。")
 
-    @user_commands.command("unbind")
+    @github_commands.command("unbind")
     async def unbind_github_command(self, event: AstrMessageEvent):
         """解绑GitHub ID"""
         if event.get_platform_name() != "aiocqhttp":
@@ -651,7 +645,7 @@ class GitHubStarVerifyPlugin(Star):
         else:
             yield event.plain_result("❌ 解绑失败，请稍后重试。")
 
-    @user_commands.command("mystatus")
+    @github_commands.command("mystatus")
     async def user_status_command(self, event: AstrMessageEvent):
         """查看自己的绑定状态"""
         if event.get_platform_name() != "aiocqhttp":
@@ -701,7 +695,7 @@ class GitHubStarVerifyPlugin(Star):
                 f"❌ 你还没有绑定任何GitHub用户。\n🎯 当前仓库: {current_repo_display}\n使用 /github bind <用户名> 进行绑定。"
             )
 
-    @user_commands.command("help")
+    @github_commands.command("help")
     async def user_help_command(self, event: AstrMessageEvent):
         """显示帮助信息"""
         help_msg = """GitHub用户命令：
