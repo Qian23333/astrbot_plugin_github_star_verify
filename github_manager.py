@@ -203,7 +203,8 @@ class GitHubStarManager:
             checked_count = 0
             star_time = None
 
-            while page <= 20:  # 最多检查2000个仓库，避免API调用过多
+            # 通过 Link 响应头判断是否还有下一页，直到没有下一页为止
+            while True:
                 params["page"] = page
                 response = await self.http_client.get(
                     url, headers=headers, params=params
@@ -232,8 +233,14 @@ class GitHubStarManager:
                     if user_starred:
                         break  # 找到仓库后跳出分页循环
 
-                    page += 1
-                    await asyncio.sleep(0.1)  # 避免API限制
+                    # 若 Link 头存在 next 则继续翻页，否则结束
+                    link_header = response.headers.get("Link", "")
+                    if 'rel="next"' in link_header:
+                        page += 1
+                        await asyncio.sleep(0.1)  # 避免API限制
+                        continue
+                    else:
+                        break
 
                 elif response.status_code == 401:
                     logger.error(f"[GitHub Manager] 认证失败: {response.text[:500]}")
