@@ -1,5 +1,5 @@
 from astrbot.api.event import filter, AstrMessageEvent
-from astrbot.api.star import Context, Star, register
+from astrbot.api.star import Context, Star
 from astrbot.api import logger
 import asyncio
 import re
@@ -7,14 +7,7 @@ from typing import Dict, Any, Optional
 from .github_manager import MultiRepoGitHubStarManager
 
 
-@register(
-    "github_star_verify",
-    "Qian23333",
-    "QQ群GitHub Star验证插件",
-    "2.0.0",
-    "https://github.com/Qian23333/astrbot_plugin_github_star_verify",
-)
-class QQGitHubStarVerifyPlugin(Star):
+class GitHubStarVerifyPlugin(Star):
     def __init__(self, context: Context, config: Dict[str, Any]):
         super().__init__(context)
         self.context = context
