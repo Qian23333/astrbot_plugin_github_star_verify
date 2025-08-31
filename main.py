@@ -69,7 +69,7 @@ class GitHubStarVerifyPlugin(Star):
         # 验证必要配置
         if not self.github_token:
             logger.error(
-                "[GitHub Verify] 缺少GitHub token配置"
+                "[GitHub Star Verify] 缺少GitHub token配置"
             )
 
     def get_repo_for_group(self, group_id: str) -> Optional[str]:
@@ -81,7 +81,7 @@ class GitHubStarVerifyPlugin(Star):
             return self.default_repo
         else:
             # 如果没有配置默认仓库且群组也没有映射，返回 None 或抛出异常
-            logger.error(f"[GitHub Verify] 群组 {group_id} 没有配置仓库映射且没有默认仓库")
+            logger.error(f"[GitHub Star Verify] 群组 {group_id} 没有配置仓库映射且没有默认仓库")
             return None
 
     def _group_key(self, gid) -> str:
@@ -101,13 +101,13 @@ class GitHubStarVerifyPlugin(Star):
 
             if not self.github_token:
                 logger.error(
-                    "[GitHub Verify] 缺少GitHub token配置"
+                    "[GitHub Star Verify] 缺少GitHub token配置"
                 )
                 return False
 
             if not has_default and not has_group_mapping:
                 logger.error(
-                    "[GitHub Verify] 需要配置 default_repo 或 group_repo_map 中的至少一个"
+                    "[GitHub Star Verify] 需要配置 default_repo 或 group_repo_map 中的至少一个"
                 )
                 return False
 
@@ -127,20 +127,20 @@ class GitHubStarVerifyPlugin(Star):
                 )
                 if stars_count == 0:
                     logger.info(
-                        f"[GitHub Verify] 检测到默认仓库 {self.default_repo} 数据库为空，请使用 /github sync 命令同步Star用户"
+                        f"[GitHub Star Verify] 检测到默认仓库 {self.default_repo} 数据库为空，请使用 /github sync 命令同步Star用户"
                     )
                 else:
                     logger.info(
-                        f"[GitHub Verify] GitHub管理器已初始化，默认仓库: {self.default_repo}，数据库中有 {stars_count} 个Star用户"
+                        f"[GitHub Star Verify] GitHub管理器已初始化，默认仓库: {self.default_repo}，数据库中有 {stars_count} 个Star用户"
                     )
             else:
                 logger.info(
-                    "[GitHub Verify] GitHub管理器已初始化，未配置默认仓库，仅使用群组仓库映射"
+                    "[GitHub Star Verify] GitHub管理器已初始化，未配置默认仓库，仅使用群组仓库映射"
                 )
 
             # 显示群组配置信息
             if self.group_repo_map:
-                logger.info(f"[GitHub Verify] 群组仓库映射: {self.group_repo_map}")
+                logger.info(f"[GitHub Star Verify] 群组仓库映射: {self.group_repo_map}")
 
         return True
 
@@ -200,24 +200,24 @@ class GitHubStarVerifyPlugin(Star):
             bot_role = bot_info.get("role", "member")
             if bot_role not in ["admin", "owner"]:
                 logger.warning(
-                    f"[GitHub Verify] 机器人在群 {gid} 不是管理员，无法发送验证消息和执行踢人操作"
+                    f"[GitHub Star Verify] 机器人在群 {gid} 不是管理员，无法发送验证消息和执行踢人操作"
                 )
                 return
         except Exception as e:
-            logger.warning(f"[GitHub Verify] 获取机器人权限失败: {e}，跳过验证流程")
+            logger.warning(f"[GitHub Star Verify] 获取机器人权限失败: {e}，跳过验证流程")
             return
 
         # 获取该群对应的仓库
         repo = self.get_repo_for_group(gid)
         if not repo:
-            logger.warning(f"[GitHub Verify] 群组 {gid} 没有配置仓库，跳过验证")
+            logger.warning(f"[GitHub Star Verify] 群组 {gid} 没有配置仓库，跳过验证")
             return
 
         # 检查是否已经验证过该仓库
         existing_github = await self.github_manager.is_qq_bound_to_repo(uid, repo)
         if existing_github:
             logger.info(
-                f"[GitHub Verify] 用户 {uid} 已绑定GitHub用户 {existing_github} 到仓库 {repo}，跳过验证"
+                f"[GitHub Star Verify] 用户 {uid} 已绑定GitHub用户 {existing_github} 到仓库 {repo}，跳过验证"
             )
             return
 
@@ -229,7 +229,7 @@ class GitHubStarVerifyPlugin(Star):
 
         self.pending[uid] = self._group_key(gid)
         logger.info(
-            f"[GitHub Verify] 用户 {uid} 加入群 {gid}，启动GitHub验证流程，目标仓库: {repo}"
+            f"[GitHub Star Verify] 用户 {uid} 加入群 {gid}，启动GitHub验证流程，目标仓库: {repo}"
         )
 
         # 获取用户昵称
@@ -240,7 +240,7 @@ class GitHubStarVerifyPlugin(Star):
             )
             nickname = user_info.get("card", "") or user_info.get("nickname", uid)
         except Exception as e:
-            logger.warning(f"[GitHub Verify] 获取用户 {uid} 昵称失败: {e}")
+            logger.warning(f"[GitHub Star Verify] 获取用户 {uid} 昵称失败: {e}")
 
         # 发送验证提示
         prompt_message = self.join_prompt.format(
@@ -273,7 +273,7 @@ class GitHubStarVerifyPlugin(Star):
         # 获取该群对应的仓库
         repo = self.get_repo_for_group(gid)
         if not repo:
-            logger.warning(f"[GitHub Verify] 群组 {gid} 没有配置仓库，跳过验证消息处理")
+            logger.warning(f"[GitHub Star Verify] 群组 {gid} 没有配置仓库，跳过验证消息处理")
             return
 
         # 检查是否@了机器人
@@ -354,7 +354,7 @@ class GitHubStarVerifyPlugin(Star):
         )
 
         logger.info(
-            f"[GitHub Verify] 用户 {uid} 使用GitHub用户名 {github_username} 验证成功，仓库: {repo}"
+            f"[GitHub Star Verify] 用户 {uid} 使用GitHub用户名 {github_username} 验证成功，仓库: {repo}"
         )
         event.stop_event()
 
@@ -381,7 +381,7 @@ class GitHubStarVerifyPlugin(Star):
             task = self.timeout_tasks.pop(uid, None)
             if task and not task.done():
                 task.cancel()
-            logger.info(f"[GitHub Verify] 待验证用户 {uid} 已离开群聊，清理验证状态")
+            logger.info(f"[GitHub Star Verify] 待验证用户 {uid} 已离开群聊，清理验证状态")
 
     async def _timeout_kick(self, uid: str, gid: int, nickname: str, repo: str):
         """超时后执行踢人操作"""
@@ -415,7 +415,7 @@ class GitHubStarVerifyPlugin(Star):
                     reject_add_request=False,
                 )
                 logger.info(
-                    f"[GitHub Verify] 用户 {uid} ({nickname}) GitHub验证超时，已从群 {gid} 踢出"
+                    f"[GitHub Star Verify] 用户 {uid} ({nickname}) GitHub验证超时，已从群 {gid} 踢出"
                 )
 
                 # 发送踢出消息
@@ -425,10 +425,10 @@ class GitHubStarVerifyPlugin(Star):
                 )
 
             except Exception as e:
-                logger.error(f"[GitHub Verify] 踢出用户 {uid} 时发生错误: {e}")
+                logger.error(f"[GitHub Star Verify] 踢出用户 {uid} 时发生错误: {e}")
 
         except asyncio.CancelledError:
-            logger.info(f"[GitHub Verify] 用户 {uid} 验证成功，踢出任务已取消")
+            logger.info(f"[GitHub Star Verify] 用户 {uid} 验证成功，踢出任务已取消")
         finally:
             self.pending.pop(uid, None)
             self.timeout_tasks.pop(uid, None)

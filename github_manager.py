@@ -39,7 +39,7 @@ async def init_database():
 
         await conn.commit()
 
-    logger.info(f"[GitHub Manager] 数据库初始化完成: {DB_PATH}")
+    logger.info(f"[GitHub Star Verify] 数据库初始化完成: {DB_PATH}")
 
 
 class GitHubStarManager:
@@ -69,7 +69,7 @@ class GitHubStarManager:
             "User-Agent": "AstrBot-GitHub-Verification",
         }
 
-        logger.info(f"[GitHub Manager] 开始获取仓库 {self.github_repo} 的Star用户...")
+        logger.info(f"[GitHub Star Verify] 开始获取仓库 {self.github_repo} 的Star用户...")
 
         while True:
             url = f"https://api.github.com/repos/{self.github_repo}/stargazers"
@@ -86,17 +86,17 @@ class GitHubStarManager:
                             data = response.json()
                         except Exception as e:
                             logger.error(
-                                f"[GitHub Manager] 解析JSON失败（页 {page}）: {e}"
+                                f"[GitHub Star Verify] 解析JSON失败（页 {page}）: {e}"
                             )
                             data = None
 
                         if not data:  # 没有更多数据
                             if page == 1:
                                 logger.warning(
-                                    f"[GitHub Manager] 仓库 {self.github_repo} 暂时没有Star用户"
+                                    f"[GitHub Star Verify] 仓库 {self.github_repo} 暂时没有Star用户"
                                 )
                             logger.info(
-                                f"[GitHub Manager] 已获取完所有页面，共 {len(stargazers)} 个Star用户"
+                                f"[GitHub Star Verify] 已获取完所有页面，共 {len(stargazers)} 个Star用户"
                             )
                             return stargazers
 
@@ -105,7 +105,7 @@ class GitHubStarManager:
                                 stargazers.append(user.get("login"))
 
                         logger.info(
-                            f"[GitHub Manager] 获取第 {page} 页，{len(data)} 个用户，累计: {len(stargazers)}"
+                            f"[GitHub Star Verify] 获取第 {page} 页，{len(data)} 个用户，累计: {len(stargazers)}"
                         )
                         page += 1
                         await asyncio.sleep(0.1)
@@ -113,7 +113,7 @@ class GitHubStarManager:
 
                     elif response.status_code == 401:
                         logger.error(
-                            f"[GitHub Manager] 认证失败: {response.text[:500]}"
+                            f"[GitHub Star Verify] 认证失败: {response.text[:500]}"
                         )
                         return stargazers
 
@@ -125,24 +125,24 @@ class GitHubStarManager:
                         # 检查是否是API限制还是权限问题
                         if remaining == "0" or "rate limit" in response.text.lower():
                             logger.warning(
-                                f"[GitHub Manager] API限制，已收集到 {len(stargazers)} 个Star用户"
+                                f"[GitHub Star Verify] API限制，已收集到 {len(stargazers)} 个Star用户"
                             )
                         else:
                             logger.error(
-                                f"[GitHub Manager] 权限不足: {response.text[:500]}"
+                                f"[GitHub Star Verify] 权限不足: {response.text[:500]}"
                             )
                         return stargazers
 
                     elif response.status_code == 404:
                         logger.error(
-                            f"[GitHub Manager] 仓库不存在: {response.text[:500]}"
+                            f"[GitHub Star Verify] 仓库不存在: {response.text[:500]}"
                         )
                         return stargazers
 
                     elif response.status_code == 422:
                         # 页码超出范围，正常结束
                         logger.info(
-                            f"[GitHub Manager] 获取完成，共 {len(stargazers)} 个Star用户"
+                            f"[GitHub Star Verify] 获取完成，共 {len(stargazers)} 个Star用户"
                         )
                         return stargazers
 
@@ -153,13 +153,13 @@ class GitHubStarManager:
                             continue
                         else:
                             logger.error(
-                                f"[GitHub Manager] 服务器错误: {response.text[:500]}"
+                                f"[GitHub Star Verify] 服务器错误: {response.text[:500]}"
                             )
                             return stargazers
 
                     else:
                         logger.error(
-                            f"[GitHub Manager] 请求失败: {response.status_code} - {response.text[:500]}"
+                            f"[GitHub Star Verify] 请求失败: {response.status_code} - {response.text[:500]}"
                         )
                         return stargazers
 
@@ -168,19 +168,19 @@ class GitHubStarManager:
                         await asyncio.sleep(backoff_base * attempt)
                         continue
                     else:
-                        logger.error("[GitHub Manager] 请求超时")
+                        logger.error("[GitHub Star Verify] 请求超时")
                         return stargazers
                 except Exception as e:
-                    logger.error(f"[GitHub Manager] 请求异常: {e}")
+                    logger.error(f"[GitHub Star Verify] 请求异常: {e}")
                     return stargazers
 
             else:
                 # 所有重试都失败
-                logger.error("[GitHub Manager] 重试失败，停止获取")
+                logger.error("[GitHub Star Verify] 重试失败，停止获取")
                 return stargazers
 
         # 正常完成
-        logger.info(f"[GitHub Manager] 获取完成，共 {len(stargazers)} 个Star用户")
+        logger.info(f"[GitHub Star Verify] 获取完成，共 {len(stargazers)} 个Star用户")
         return stargazers
 
     async def check_user_starred_directly(self, github_username: str) -> bool:
@@ -196,7 +196,7 @@ class GitHubStarManager:
             url = f"https://api.github.com/users/{github_username}/starred"
             params = {"per_page": 100}
 
-            logger.info(f"[GitHub Manager] 开始检查用户 {github_username} 的Star列表")
+            logger.info(f"[GitHub Star Verify] 开始检查用户 {github_username} 的Star列表")
 
             page = 1
             user_starred = False
@@ -225,7 +225,7 @@ class GitHubStarManager:
                             # 获取Star时间戳
                             star_time = starred_repo_data.get("starred_at", "未知时间")
                             logger.info(
-                                f"[GitHub Manager] 用户 {github_username} 已Star仓库 {self.github_repo} (时间: {star_time})"
+                                f"[GitHub Star Verify] 用户 {github_username} 已Star仓库 {self.github_repo} (时间: {star_time})"
                             )
                             user_starred = True
                             break  # 找到仓库后立即跳出当前页的循环
@@ -243,21 +243,21 @@ class GitHubStarManager:
                         break
 
                 elif response.status_code == 401:
-                    logger.error(f"[GitHub Manager] 认证失败: {response.text[:500]}")
+                    logger.error(f"[GitHub Star Verify] 认证失败: {response.text[:500]}")
                     return False
                 elif response.status_code == 403:
                     logger.warning(
-                        f"[GitHub Manager] API限制或权限不足: {response.text[:500]}"
+                        f"[GitHub Star Verify] API限制或权限不足: {response.text[:500]}"
                     )
                     return False
                 elif response.status_code == 404:
                     logger.warning(
-                        f"[GitHub Manager] 用户 {github_username} 不存在或仓库不可见"
+                        f"[GitHub Star Verify] 用户 {github_username} 不存在或仓库不可见"
                     )
                     return False
                 else:
                     logger.error(
-                        f"[GitHub Manager] 检查Star状态失败: {response.status_code} - {response.text[:500]}"
+                        f"[GitHub Star Verify] 检查Star状态失败: {response.status_code} - {response.text[:500]}"
                     )
                     return False
 
@@ -266,12 +266,12 @@ class GitHubStarManager:
                 return True
             else:
                 logger.info(
-                    f"[GitHub Manager] 用户 {github_username} 在其 {checked_count} 个Star仓库中未找到 {self.github_repo}"
+                    f"[GitHub Star Verify] 用户 {github_username} 在其 {checked_count} 个Star仓库中未找到 {self.github_repo}"
                 )
                 return False
 
         except Exception as e:
-            logger.error(f"[GitHub Manager] 检查Star状态异常: {e}")
+            logger.error(f"[GitHub Star Verify] 检查Star状态异常: {e}")
             return False
 
     async def record_stargazer(self, github_username: str) -> bool:
@@ -290,10 +290,10 @@ class GitHubStarManager:
                     (github_username, self.github_repo, current_time, current_time),
                 )
                 await conn.commit()
-                logger.info(f"[GitHub Manager] 已将用户 {github_username} 保存到数据库")
+                logger.info(f"[GitHub Star Verify] 已将用户 {github_username} 保存到数据库")
                 return True
         except Exception as e:
-            logger.warning(f"[GitHub Manager] 保存用户到数据库失败: {e}")
+            logger.warning(f"[GitHub Star Verify] 保存用户到数据库失败: {e}")
             return False
 
     async def sync_stargazers(self, stargazers: List[str]):
@@ -323,11 +323,11 @@ class GitHubStarManager:
 
                 await conn.commit()
                 logger.info(
-                    f"[GitHub Manager] 同步完成: 新增 {len(new_users)} 个Star用户到仓库 {self.github_repo}"
+                    f"[GitHub Star Verify] 同步完成: 新增 {len(new_users)} 个Star用户到仓库 {self.github_repo}"
                 )
 
         except Exception as e:
-            logger.error(f"[GitHub Manager] 同步数据失败: {e}")
+            logger.error(f"[GitHub Star Verify] 同步数据失败: {e}")
 
     async def is_stargazer_for_repo(self, github_id: str, repo: str) -> bool:
         """检查用户是否为指定仓库的Star用户"""
@@ -340,7 +340,7 @@ class GitHubStarManager:
                     result = await cursor.fetchone()
                     return result is not None
         except Exception as e:
-            logger.error(f"[GitHub Manager] 检查Star状态失败: {e}")
+            logger.error(f"[GitHub Star Verify] 检查Star状态失败: {e}")
             return False
 
     async def is_github_id_bound_to_repo(
@@ -356,7 +356,7 @@ class GitHubStarManager:
                     result = await cursor.fetchone()
                     return result[0] if result else None
         except Exception as e:
-            logger.error(f"[GitHub Manager] 检查绑定状态失败: {e}")
+            logger.error(f"[GitHub Star Verify] 检查绑定状态失败: {e}")
             return None
 
     async def is_qq_bound_to_repo(self, qq_id: str, repo: str) -> Optional[str]:
@@ -370,7 +370,7 @@ class GitHubStarManager:
                     result = await cursor.fetchone()
                     return result[0] if result else None
         except Exception as e:
-            logger.error(f"[GitHub Manager] 检查QQ绑定状态失败: {e}")
+            logger.error(f"[GitHub Star Verify] 检查QQ绑定状态失败: {e}")
             return None
 
     async def bind_github_qq_to_repo(
@@ -384,7 +384,7 @@ class GitHubStarManager:
             existing_github = await self.is_qq_bound_to_repo(qq_id, repo)
             if existing_github and existing_github != github_id:
                 logger.warning(
-                    f"[GitHub Manager] QQ号 {qq_id} 已绑定GitHub用户 {existing_github} 在仓库 {repo}"
+                    f"[GitHub Star Verify] QQ号 {qq_id} 已绑定GitHub用户 {existing_github} 在仓库 {repo}"
                 )
                 return False
 
@@ -404,17 +404,17 @@ class GitHubStarManager:
 
                 if success:
                     logger.info(
-                        f"[GitHub Manager] 成功绑定: GitHub用户 {github_id} <-> QQ号 {qq_id} 在仓库 {repo}"
+                        f"[GitHub Star Verify] 成功绑定: GitHub用户 {github_id} <-> QQ号 {qq_id} 在仓库 {repo}"
                     )
                 else:
                     logger.warning(
-                        f"[GitHub Manager] 绑定失败: GitHub用户 {github_id} 不存在于仓库 {repo}"
+                        f"[GitHub Star Verify] 绑定失败: GitHub用户 {github_id} 不存在于仓库 {repo}"
                     )
 
                 return success
 
         except Exception as e:
-            logger.error(f"[GitHub Manager] 绑定失败: {e}")
+            logger.error(f"[GitHub Star Verify] 绑定失败: {e}")
             return False
 
     async def unbind_qq_from_repo(self, qq_id: str, repo: str) -> bool:
@@ -436,12 +436,12 @@ class GitHubStarManager:
                 success = cursor.rowcount > 0
 
                 if success:
-                    logger.info(f"[GitHub Manager] 成功解绑QQ号: {qq_id} 从仓库 {repo}")
+                    logger.info(f"[GitHub Star Verify] 成功解绑QQ号: {qq_id} 从仓库 {repo}")
 
                 return success
 
         except Exception as e:
-            logger.error(f"[GitHub Manager] 解绑失败: {e}")
+            logger.error(f"[GitHub Star Verify] 解绑失败: {e}")
             return False
 
     async def get_stars_count_for_repo(self, repo: str) -> int:
@@ -454,7 +454,7 @@ class GitHubStarManager:
                     result = await cursor.fetchone()
                     return result[0] if result else 0
         except Exception as e:
-            logger.error(f"[GitHub Manager] 获取Star用户数量失败: {e}")
+            logger.error(f"[GitHub Star Verify] 获取Star用户数量失败: {e}")
             return 0
 
     async def get_bound_count_for_repo(self, repo: str) -> int:
@@ -468,7 +468,7 @@ class GitHubStarManager:
                     result = await cursor.fetchone()
                     return result[0] if result else 0
         except Exception as e:
-            logger.error(f"[GitHub Manager] 获取绑定用户数量失败: {e}")
+            logger.error(f"[GitHub Star Verify] 获取绑定用户数量失败: {e}")
             return 0
 
     def __str__(self):
