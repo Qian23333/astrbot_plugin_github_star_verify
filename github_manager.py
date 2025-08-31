@@ -5,15 +5,10 @@ import time
 import os
 from typing import List, Optional, Dict
 from astrbot.api import logger
-from astrbot.core.utils.astrbot_path import get_astrbot_data_path
+from astrbot.api.star import StarTools
 
 # 数据库文件路径
-DB_PATH = os.path.join(
-    get_astrbot_data_path(),
-    "plugin_data",
-    "github_star_verify",
-    "github_star.db",
-)
+DB_PATH = str(StarTools.get_data_dir("github_star_verify") / "github_star.db")
 
 
 async def init_database():
