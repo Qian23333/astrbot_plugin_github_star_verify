@@ -179,10 +179,6 @@ class GitHubStarManager:
                 logger.error("[GitHub Star Verify] 重试失败，停止获取")
                 return stargazers
 
-        # 正常完成
-        logger.info(f"[GitHub Star Verify] 获取完成，共 {len(stargazers)} 个Star用户")
-        return stargazers
-
     async def check_user_starred_directly(self, github_username: str) -> bool:
         """直接通过GitHub API检查用户是否Star了仓库"""
         headers = {
@@ -592,18 +588,49 @@ class MultiRepoGitHubStarManager:
         return await manager.get_bound_count_for_repo(repo)
 
     async def get_qq_bound_repos(self, qq_id: str) -> List[str]:
-        """获取QQ号绑定的所有仓库"""
-        bound_repos = []
+        """
+        使用单次查询获取该 QQ 绑定的所有 repo，然后按照以下顺序返回：
+        1. 如果 default_repo 存在且已绑定，则先返回；
+        2. 按照 group_repo_map 的顺序返回已绑定的仓库（去重）；
+        3. 将其他未在配置中的仓库追加在最后（按字典顺序保证确定性）。
+        """
 
-        # 检查默认仓库（如果配置了）
-        if self.default_repo and await self.is_qq_bound_to_repo(qq_id, self.default_repo):
+        try:
+            # 一次性查询数据库，获取该 qq_id 绑定的所有 repo
+            async with aiosqlite.connect(DB_PATH) as conn:
+                async with conn.execute(
+                    "SELECT DISTINCT repo FROM github_stars WHERE qq_id = ?",
+                    (qq_id,)
+                ) as cursor:
+                    rows = await cursor.fetchall()
+                    found = {row[0] for row in rows}
+        except Exception as e:
+            logger.error(f"[GitHub Star Verify] 查询绑定仓库失败: {e}")
+            return []
+
+        if not found:
+            return []
+
+        bound_repos: List[str] = []
+
+        # default_repo 优先
+        if self.default_repo and self.default_repo in found:
             bound_repos.append(self.default_repo)
 
-        # 检查所有群组配置的仓库
-        unique_repos = set(self.group_repo_map.values())
-        for repo in unique_repos:
-            if repo and repo != self.default_repo and await self.is_qq_bound_to_repo(qq_id, repo):
-                bound_repos.append(repo)
+        # 按 group_repo_map 的顺序加入已绑定且未加入的仓库
+        added = set(bound_repos)
+        for r in self.group_repo_map.values():
+            if not r:
+                continue
+            if r in added:
+                continue
+            if r in found:
+                bound_repos.append(r)
+                added.add(r)
+
+        # 将数据库中存在但未在配置中的仓库追加（保持确定性，按排序）
+        others = sorted(found - added)
+        bound_repos.extend(others)
 
         return bound_repos
 
