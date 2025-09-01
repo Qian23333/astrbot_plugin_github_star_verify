@@ -648,7 +648,7 @@ class GitHubStarVerifyPlugin(Star):
             yield event.plain_result("GitHub管理器未初始化，请联系管理员。")
             return
 
-        uid = str(event.get_sender_id())
+        uid = event.get_sender_id()
         group_id = event.get_group_id()
 
         # 获取用户在所有仓库的绑定状态

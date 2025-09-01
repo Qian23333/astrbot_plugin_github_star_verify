@@ -517,17 +517,17 @@ class MultiRepoGitHubStarManager:
 
             if stargazers:
                 logger.info(
-                    f"[Multi-Repo Manager] 成功获取 {len(stargazers)} 个Star用户，开始同步到数据库..."
+                    f"[GitHub Star Verify] 成功获取 {len(stargazers)} 个Star用户，开始同步到数据库..."
                 )
                 await manager.sync_stargazers(stargazers)
                 return True
             else:
                 logger.info(
-                    f"[Multi-Repo Manager] 仓库 {repo} 当前没有Star用户，数据库已初始化"
+                    f"[GitHub Star Verify] 仓库 {repo} 当前没有Star用户，数据库已初始化"
                 )
                 return True
         except Exception as e:
-            logger.error(f"[Multi-Repo Manager] 同步仓库 {repo} 的Star用户失败: {e}")
+            logger.error(f"[GitHub Star Verify] 同步仓库 {repo} 的Star用户失败: {e}")
             return False
 
     async def sync_all_repos(self) -> Dict[str, bool]:
@@ -611,7 +611,7 @@ class MultiRepoGitHubStarManager:
         """关闭HTTP客户端"""
         if self.http_client:
             await self.http_client.aclose()
-            logger.debug("[Multi-Repo Manager] HTTP客户端已关闭")
+            logger.debug("[GitHub Star Verify] HTTP客户端已关闭")
 
     def __str__(self):
         return f"MultiRepoGitHubStarManager(default_repo={self.default_repo}, group_count={len(self.group_repo_map)})"
