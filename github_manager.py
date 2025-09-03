@@ -8,7 +8,7 @@ from astrbot.api import logger
 from astrbot.api.star import StarTools
 
 # 数据库文件路径
-DB_PATH = str(StarTools.get_data_dir("github_star_verify") / "github_star.db")
+DB_PATH = str(StarTools.get_data_dir("github_star_verify") / "github_stars.db")
 
 
 async def init_database():
